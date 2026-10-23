@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>progress-report · 进展汇报技能</title>
+<style>
+:root{
+  --fg:#f5f5f7;
+  --muted:#8e8e93;
+  --muted2:#a1a1a6;
+  --line:rgba(255,255,255,.08);
+  --card:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+  --teal:#5eead4;
+  --violet:#c4b5fd;
+  --font:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --ease:cubic-bezier(.2,.72,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden}
+body{font-family:var(--font);color:var(--fg);-webkit-font-smoothing:antialiased}
+#stage{position:absolute;left:50%;top:50%;width:1080px;height:1920px;
+  transform-origin:center center;overflow:hidden;background:#000;isolation:isolate}
+
+/* ---------- background ---------- */
+.bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.bg::before{content:"";position:absolute;inset:-10%;
+  background:
+    radial-gradient(48% 34% at 50% 4%,rgba(94,234,212,.13),transparent 70%),
+    radial-gradient(52% 40% at 90% 98%,rgba(124,108,255,.17),transparent 72%),
+    radial-gradient(40% 30% at 4% 74%,rgba(236,72,153,.07),transparent 70%);
+  animation:breathe 14s ease-in-out infinite alternate}
+.bg::after{content:"";position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:90px 90px;background-position:45px 45px;
+  -webkit-mask-image:radial-gradient(circle at 50% 44%,#000 0%,transparent 72%);
+  mask-image:radial-gradient(circle at 50% 44%,#000 0%,transparent 72%)}
+@keyframes breathe{from{opacity:.75;transform:scale(1)}to{opacity:1;transform:scale(1.04)}}
+.stars{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.55;
+  background-image:
+    radial-gradient(1.5px 1.5px at 8% 16%,rgba(255,255,255,.7),transparent 100%),
+    radial-gradient(1.2px 1.2px at 21% 38%,rgba(255,255,255,.45),transparent 100%),
+    radial-gradient(1.8px 1.8px at 33% 9%,rgba(94,234,212,.55),transparent 100%),
+    radial-gradient(1.2px 1.2px at 44% 62%,rgba(255,255,255,.4),transparent 100%),
+    radial-gradient(1.5px 1.5px at 57% 24%,rgba(255,255,255,.55),transparent 100%),
+    radial-gradient(1.2px 1.2px at 68% 78%,rgba(196,181,253,.5),transparent 100%),
+    radial-gradient(1.6px 1.6px at 79% 12%,rgba(255,255,255,.5),transparent 100%),
+    radial-gradient(1.2px 1.2px at 88% 52%,rgba(255,255,255,.35),transparent 100%),
+    radial-gradient(1.4px 1.4px at 94% 84%,rgba(94,234,212,.45),transparent 100%),
+    radial-gradient(1.2px 1.2px at 12% 88%,rgba(196,181,253,.4),transparent 100%);
+  animation:starDrift 20s ease-in-out infinite alternate}
+@keyframes starDrift{from{transform:translateY(0)}to{transform:translateY(-26px)}}
+.vignette{position:absolute;inset:0;z-index:5;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(0,0,0,.58) 100%)}
+
+/* ---------- scene ---------- */
+.scene{position:absolute;inset:0;z-index:1;padding:120px 90px 160px;
+  display:flex;flex-direction:column;justify-content:center;
+  opacity:0;visibility:hidden;transform:scale(1.03);filter:blur(10px);
+  transition:opacity .85s ease,transform 1.1s var(--ease),filter .85s ease,visibility 0s .85s}
+.scene.active{z-index:2;opacity:1;visibility:visible;transform:none;filter:none;
+  transition:opacity .85s ease,transform 1.1s var(--ease),filter .85s ease,visibility 0s 0s}
+
+/* ---------- reveal ---------- */
+.r{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease);transition-delay:var(--d,0s)}
+.scene.active .r{opacity:1;transform:none}
+.scene:not(.active) .r{transition-delay:0s}
+.mask{overflow:hidden;padding:.05em 0}
+.mask-inner{display:block;transform:translateY(118%);transition:transform 1.05s var(--ease);transition-delay:var(--d,0s)}
+.scene.active .mask-inner{transform:none}
+.scene:not(.active) .mask-inner{transition-delay:0s}
+
+/* ---------- type ---------- */
+.kicker{font-size:26px;letter-spacing:.34em;color:var(--muted);text-transform:uppercase;font-weight:500}
+.kicker-cn{font-size:29px;letter-spacing:.12em;color:var(--muted)}
+.display{font-size:116px;font-weight:800;line-height:1.1;letter-spacing:-.035em}
+.grad{background:linear-gradient(100deg,#5eead4 0%,#93c5fd 28%,#c4b5fd 55%,#f0abfc 78%,#5eead4 100%);
+  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:gradShift 9s linear infinite}
+@keyframes gradShift{to{background-position:220% 50%}}
+.h1{font-size:74px;font-weight:800;letter-spacing:-.03em;line-height:1.16}
+.h1.sm{font-size:66px}
+.center{display:flex;flex-direction:column;align-items:center;text-align:center}
+.brandline{position:absolute;top:104px;left:90px;display:flex;align-items:center;gap:16px;
+  font-family:var(--mono);font-size:24px;color:rgba(255,255,255,.42);letter-spacing:.06em}
+.brand-dot{width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 18px rgba(94,234,212,.8)}
+
+/* ---------- 00 hook ---------- */
+.s0-quote{font-size:132px;font-weight:800;letter-spacing:-.05em;line-height:1.12;margin-top:22px}
+.s0-line{font-size:64px;font-weight:700;letter-spacing:-.02em;color:rgba(245,245,247,.92)}
+.s0-sub{margin-top:64px;font-size:38px;color:var(--muted2);letter-spacing:.02em}
+.qmark{color:var(--teal)}
+
+/* ---------- 01 pain ---------- */
+.pain-head{margin-bottom:52px}
+.pain-list{display:flex;flex-direction:column;gap:26px}
+.pain{display:flex;align-items:center;gap:42px;padding:44px 48px;border-radius:32px;
+  background:var(--card);border:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.35);
+  opacity:0;transform:perspective(1400px) rotateX(9deg) translateY(48px) scale(.97);
+  transition:opacity .9s var(--ease),transform 1.05s var(--ease);transition-delay:var(--d,0s)}
+.scene.active .pain{opacity:1;transform:none}
+.scene:not(.active) .pain{transition-delay:0s}
+.pain .num{font-family:var(--mono);font-size:34px;color:var(--teal);opacity:.9;min-width:64px}
+.pain h3{font-size:50px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.pain p{font-size:33px;color:var(--muted);margin-top:8px}
+
+/* ---------- 02 reveal ---------- */
+.orb{position:absolute;left:50%;top:44%;width:760px;height:760px;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(94,234,212,.22),rgba(124,108,255,.16) 42%,transparent 68%);
+  filter:blur(30px);z-index:-1;animation:orb 9s ease-in-out infinite alternate}
+@keyframes orb{from{transform:translate(-50%,-50%) scale(.92);opacity:.8}to{transform:translate(-50%,-52%) scale(1.06);opacity:1}}
+.spark{position:absolute;left:50%;top:48%;width:7px;height:7px;border-radius:50%;
+  background:#5eead4;box-shadow:0 0 14px rgba(94,234,212,.9);opacity:0}
+.scene.active .spark{animation:spark 3.2s ease-out infinite;animation-delay:var(--sd,0s)}
+@keyframes spark{0%{opacity:0;transform:translate(0,0) scale(.4)}
+  18%{opacity:1}100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(1)}}
+.product-name{font-family:var(--mono);font-size:104px;font-weight:700;letter-spacing:-.045em;margin-top:26px;position:relative}
+.product-cn{font-size:58px;font-weight:700;margin-top:30px;letter-spacing:.06em}
+.product-desc{margin-top:50px;font-size:39px;color:var(--muted2);line-height:1.6}
+.product-desc2{margin-top:16px;font-size:33px;color:var(--muted);line-height:1.6}
+
+/* ---------- 03 pipeline ---------- */
+.pipe{margin-top:46px}
+.inputs{display:flex;gap:16px;justify-content:center}
+.chip{padding:18px 26px;border-radius:14px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.10);font-size:25px;color:#d6d6da;letter-spacing:.02em;
+  box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.wire{width:2px;height:38px;margin:0 auto;position:relative;
+  background:linear-gradient(180deg,rgba(94,234,212,.5),rgba(129,140,248,.18))}
+.wire i{position:absolute;left:50%;top:0;width:8px;height:8px;margin-left:-4px;border-radius:50%;
+  background:var(--teal);box-shadow:0 0 16px rgba(94,234,212,.9);animation:drop 1.7s ease-in-out infinite}
+@keyframes drop{0%{top:-4px;opacity:0}20%{opacity:1}100%{top:38px;opacity:0}}
+.core{position:relative;width:470px;margin:0 auto;padding:24px 38px;border-radius:22px;text-align:center;
+  background:linear-gradient(180deg,rgba(94,234,212,.13),rgba(129,140,248,.07));
+  border:1px solid rgba(94,234,212,.38);
+  box-shadow:0 0 70px rgba(94,234,212,.14),inset 0 0 40px rgba(94,234,212,.05)}
+.core b{font-family:var(--mono);font-size:34px;letter-spacing:-.03em}
+.core small{display:block;margin-top:8px;font-size:21px;color:var(--muted)}
+.core::after{content:"";position:absolute;inset:-2px;border-radius:24px;border:1px solid rgba(94,234,212,.5);
+  animation:coreRing 2.4s ease-out infinite}
+@keyframes coreRing{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.07);opacity:0}}
+.steps{display:flex;flex-direction:column;gap:13px;margin-top:32px}
+.step{display:flex;align-items:center;gap:20px;padding:16px 26px;border-radius:16px;
+  border:1px solid var(--line);background-color:rgba(255,255,255,.025);
+  opacity:.16;transform:translateX(-14px);
+  transition:opacity .55s var(--ease),transform .55s var(--ease),background-color .55s,border-color .55s;
+  transition-delay:var(--d,0s)}
+.scene.active .step{opacity:1;transform:none;border-color:rgba(94,234,212,.28);
+  background-color:rgba(94,234,212,.07)}
+.scene:not(.active) .step{transition-delay:0s}
+.step em{font-family:var(--mono);font-style:normal;font-size:20px;color:var(--teal);width:42px}
+.step b{font-size:28px;font-weight:700;width:150px;letter-spacing:-.01em}
+.step span{font-size:23px;color:var(--muted2)}
+
+/* ---------- 04 build ---------- */
+.build{display:grid;grid-template-columns:286px 574px;gap:40px;margin-top:40px;align-items:start}
+.labs{display:flex;flex-direction:column;gap:24px;padding-top:14px}
+.lab{padding:12px 0 12px 20px;border-left:2px solid rgba(255,255,255,.12);
+  opacity:.26;transform:translateX(-12px);
+  transition:opacity .6s var(--ease),transform .6s var(--ease),border-color .6s,box-shadow .6s;
+  transition-delay:var(--d,0s)}
+.scene.active .lab{opacity:1;transform:none;border-left-color:var(--teal);
+  box-shadow:-12px 0 26px -18px rgba(94,234,212,.85)}
+.scene:not(.active) .lab{transition-delay:0s}
+.lab em{font-family:var(--mono);font-style:normal;color:var(--teal);font-size:17px;margin-right:9px}
+.lab b{font-size:27px;font-weight:700;letter-spacing:-.01em}
+.lab small{display:block;margin-top:6px;font-size:18px;color:var(--muted);line-height:1.45}
+.page-wrap{position:relative}
+.page{position:relative;width:574px;min-height:812px;background:#fff;color:#151515;
+  border-radius:5px;padding:32px 38px;box-shadow:0 44px 110px rgba(0,0,0,.72);overflow:hidden;
+  font-family:"SimSun","宋体",serif}
+.p-age{font-size:12px;color:#666;letter-spacing:.02em}
+.p-title{font-size:19px;font-weight:700;font-family:var(--font);margin-top:5px;letter-spacing:-.01em}
+.bar{height:8px;border-radius:4px;background:#e4e6ea}
+.bar.dark{background:#3c3c42}
+.pb{position:relative;margin-top:18px;padding:10px 12px;border-radius:5px;
+  opacity:0;transform:translateY(12px);
+  transition:opacity .6s ease,transform .6s var(--ease);transition-delay:var(--d,0s)}
+.scene.active .pb{opacity:1;transform:none}
+.scene:not(.active) .pb{transition-delay:0s}
+.pb::before{content:"";position:absolute;left:-13px;top:10px;bottom:10px;width:3px;border-radius:2px;
+  background:#0d9488;opacity:0;transition:opacity .45s;transition-delay:calc(var(--d,0s) + .25s)}
+.scene.active .pb::before{opacity:1}
+.ptag{font-family:var(--font);font-size:13px;font-weight:700;color:#0f766e;letter-spacing:.04em;margin-bottom:8px}
+.pdate{font-family:var(--font);font-size:15px;font-weight:700;color:#111}
+.ptheme{font-family:var(--font);font-size:14px;color:#333;margin-top:4px}
+.pdr{display:flex;align-items:center;gap:10px;margin-top:7px}
+.pdr .k{font-family:var(--font);font-size:12px;font-weight:700;color:#13343b;min-width:34px}
+.pdr .bar{flex:1}
+.ptable{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.ptable th,.ptable td{border:1px solid #a9adb5;padding:5px 7px;text-align:left}
+.ptable th{font-family:var(--font);font-weight:700;background:#f1f2f4}
+.pfig{position:relative;margin-top:8px;border:1px solid #dfe1e5;border-radius:3px;padding:8px}
+.pfig svg{display:block;width:100%;height:150px}
+.pfig .tag{position:absolute;right:8px;bottom:8px;padding:3px 8px;border-radius:999px;
+  background:#ecfdf5;color:#0f766e;font-family:var(--font);font-size:10px;font-weight:700;border:1px solid #99f6e4}
+.pcap{font-size:11px;color:#444;text-align:center;margin-top:6px}
+.pend{margin-top:10px;font-size:13px;font-weight:700;color:#111}
+.scan{position:absolute;left:0;right:0;top:0;height:3px;z-index:3;opacity:0;
+  background:linear-gradient(90deg,transparent,#5eead4,transparent);
+  box-shadow:0 0 24px rgba(94,234,212,.85);pointer-events:none}
+.scene.active .scan{animation:scan 7.6s ease-in-out 1s forwards}
+@keyframes scan{0%{top:0;opacity:0}6%{opacity:1}92%{opacity:1}100%{top:100%;opacity:0}}
+.pstatus{position:absolute;right:-6px;bottom:-22px;font-family:var(--mono);font-size:16px;color:var(--muted);
+  display:flex;align-items:center;gap:8px}
+.pstatus i{width:7px;height:7px;border-radius:50%;background:var(--teal);
+  box-shadow:0 0 10px rgba(94,234,212,.8);animation:blink 1.1s ease-in-out infinite}
+@keyframes blink{50%{opacity:.2}}
+.stwrap{position:relative;display:inline-block}
+.st1,.st2{transition:opacity .5s ease;transition-delay:8.7s}
+.st2{position:absolute;left:0;top:0;opacity:0;color:var(--teal);white-space:nowrap}
+.scene.active .st1{opacity:0}
+.scene.active .st2{opacity:1}
+.scene:not(.active) .st1,.scene:not(.active) .st2{transition-delay:0s}
+
+/* ---------- 05 rules ---------- */
+.rules-wrap{display:grid;grid-template-columns:430px 430px;gap:40px;margin-top:44px;align-items:center}
+.doc-stack{position:relative;width:430px;height:626px}
+.ghost{position:absolute;inset:0;background:#fff;border-radius:6px;opacity:.12;
+  transition:opacity .7s ease,transform .7s var(--ease);transition-delay:5.1s}
+.ghost.g1{transform:translate(13px,13px)}
+.ghost.g2{transform:translate(26px,26px);opacity:.07}
+.scene.active .ghost{opacity:0;transform:translate(0,0)}
+.scene:not(.active) .ghost{transition-delay:0s}
+.mini{position:relative;z-index:1;width:430px;height:626px;background:#fff;color:#151515;
+  border-radius:6px;padding:26px 26px 22px;box-shadow:0 44px 110px rgba(0,0,0,.74);
+  font-family:"SimSun","宋体",serif;overflow:hidden}
+.mini .p-age{font-size:11px}
+.mini .p-title{font-size:17px}
+.mini-line{font-size:13px;line-height:1.7;margin-top:10px;text-align:justify}
+.mini-line b{font-family:var(--font);font-weight:700}
+.mini-sub{font-size:13px;line-height:1.7;margin-top:10px;text-align:justify}
+.mini-sub b{font-family:var(--font);font-weight:700}
+.mini-table{margin-top:10px;border:1px solid #c9ccd2;border-radius:3px;overflow:hidden}
+.mt-row{display:flex;justify-content:space-between;gap:10px;padding:6px 9px;font-size:12px;border-top:1px solid #e1e3e7}
+.mt-row:first-child{border-top:none}
+.mt-row span{color:#333}
+.mt-row b{font-family:var(--font);color:#111}
+.mini-cap{font-size:11px;color:#444;text-align:center;margin-top:6px}
+.mini-end{font-size:12.5px;font-weight:700;color:#111;margin-top:8px}
+.news{background-image:linear-gradient(90deg,rgba(251,191,36,.42),rgba(251,191,36,.42));
+  background-repeat:no-repeat;background-size:0% 100%;transition:background-size .7s ease;transition-delay:3.35s}
+.scene.active .news{background-size:100% 100%}
+.scene:not(.active) .news{transition-delay:0s}
+.mini-chart{position:relative;margin-top:12px;border:1px solid #dfe1e5;border-radius:3px;padding:8px}
+.mini-chart svg{display:block;width:100%;height:132px}
+.mini-chart polyline{stroke-dasharray:520;stroke-dashoffset:520;transition:stroke-dashoffset 1.5s ease;transition-delay:1.7s}
+.scene.active .mini-chart polyline{stroke-dashoffset:0}
+.scene:not(.active) .mini-chart polyline{transition-delay:0s}
+.mtag{position:absolute;right:8px;bottom:8px;padding:3px 8px;border-radius:999px;
+  background:#ecfdf5;color:#0f766e;font-family:var(--font);font-size:10px;font-weight:700;
+  border:1px solid #99f6e4;opacity:0;transform:translateY(6px);
+  transition:opacity .4s,transform .4s;transition-delay:2.1s}
+.scene.active .mtag{opacity:1;transform:none}
+.page-badge{position:absolute;top:-16px;right:-14px;z-index:3;padding:9px 16px;border-radius:999px;
+  background:linear-gradient(98deg,#5eead4,#a5b4fc);color:#06121a;
+  font-family:var(--font);font-size:17px;font-weight:700;box-shadow:0 12px 32px rgba(94,234,212,.35);
+  opacity:0;transform:scale(.6);transition:opacity .5s,transform .5s var(--ease);transition-delay:5.15s}
+.scene.active .page-badge{opacity:1;transform:none}
+.scene:not(.active) .page-badge{transition-delay:0s}
+.typo-tags{position:absolute;left:26px;bottom:22px;display:flex;gap:8px}
+.typo-tag{padding:7px 13px;border-radius:999px;
+  background:#ecfdf5;border:1px solid #99f6e4;color:#0f766e;
+  font-family:var(--font);font-size:13px;font-weight:700;opacity:0;transform:translateY(8px);
+  transition:opacity .45s,transform .45s;transition-delay:var(--d,0s)}
+.scene.active .typo-tag{opacity:1;transform:none}
+.scene:not(.active) .typo-tag{transition-delay:0s}
+.rule-list{display:flex;flex-direction:column;gap:17px}
+.rule-row{display:flex;align-items:center;gap:20px;padding:22px 22px;border-radius:20px;
+  background-color:rgba(255,255,255,.035);border:1px solid var(--line);
+  transition:border-color .5s,background-color .5s;transition-delay:var(--d,0s)}
+.scene.active .rule-row{border-color:rgba(94,234,212,.22);
+  background-color:rgba(94,234,212,.06)}
+.scene:not(.active) .rule-row{transition-delay:0s}
+.rr-ico{width:46px;height:46px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  background:rgba(94,234,212,.10);border:1px solid rgba(94,234,212,.28)}
+.rr-ico svg{width:24px;height:24px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rr-txt{flex:1}
+.rr-txt b{display:block;font-size:24px;font-weight:700;letter-spacing:-.01em}
+.rr-txt small{display:block;margin-top:5px;font-size:17px;color:var(--muted);line-height:1.4}
+.sw{position:relative;width:74px;height:40px;flex:none;border-radius:999px;
+  background:rgba(255,255,255,.13);overflow:hidden}
+.sw::before{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(90deg,#5eead4,#818cf8);opacity:0;
+  transition:opacity .5s;transition-delay:var(--d,0s)}
+.sw::after{content:"";position:absolute;z-index:1;top:5px;left:5px;width:30px;height:30px;border-radius:50%;
+  background:#e9e9ee;transition:transform .5s var(--ease),background .5s;transition-delay:var(--d,0s)}
+.scene.active .sw::before{opacity:1}
+.scene.active .sw::after{transform:translateX(34px);background:#fff}
+.scene:not(.active) .sw::before,.scene:not(.active) .sw::after{transition-delay:0s}
+.rules-status{margin-top:26px;text-align:center;font-family:var(--mono);font-size:19px;color:var(--teal);
+  letter-spacing:.12em;opacity:0;transform:translateY(8px);transition:opacity .6s,transform .6s;transition-delay:8.1s}
+.scene.active .rules-status{opacity:1;transform:none}
+.scene:not(.active) .rules-status{transition-delay:0s}
+
+/* ---------- 06 terminal ---------- */
+.demo-head{display:flex;align-items:baseline;justify-content:space-between}
+.demo-src{font-size:24px;color:var(--muted)}
+.terminal{width:100%;margin-top:30px;border-radius:24px;overflow:hidden;background:#08080b;
+  border:1px solid rgba(255,255,255,.13);box-shadow:0 40px 110px rgba(0,0,0,.65)}
+.term-bar{height:50px;display:flex;align-items:center;gap:9px;padding:0 22px;
+  background:rgba(255,255,255,.045);border-bottom:1px solid rgba(255,255,255,.08)}
+.term-bar i{width:13px;height:13px;border-radius:50%;background:#3a3a3c}
+.term-bar span{margin-left:12px;font-family:var(--mono);font-size:17px;color:#78787e}
+.term-body{padding:24px 32px 28px;font-family:var(--mono);font-size:22px;line-height:1.72;color:#d4d4d8}
+.term-line{white-space:nowrap;overflow:hidden}
+.prompt{color:var(--teal)}
+.caret{color:var(--violet)}
+.typed{display:inline-block;white-space:nowrap;overflow:hidden;max-width:0;vertical-align:bottom}
+.typed.t1{animation:none}
+.scene.active .typed.t1{animation:typing .5s steps(6,end) .55s forwards}
+.scene.active .typed.t2{animation:typing 2.3s steps(24,end) 1.1s forwards}
+@keyframes typing{to{max-width:100%}}
+.tl{opacity:0;transform:translateY(7px);transition:opacity .4s ease,transform .4s ease;transition-delay:var(--d,0s)}
+.scene.active .tl{opacity:1;transform:none}
+.scene:not(.active) .tl{transition-delay:0s}
+.tl.dim{color:#8b8b93;margin-top:12px}
+.think-inline{display:inline-flex;align-items:center;margin-left:12px;vertical-align:-2px;
+  opacity:0;transition:opacity .25s;transition-delay:3.35s}
+.scene.active .think-inline{opacity:1;animation:thinkOut .3s ease 4.15s forwards}
+.scene:not(.active) .think-inline{transition-delay:0s}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(94,234,212,.22);
+  border-top-color:var(--teal);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes thinkOut{to{opacity:0}}
+.tl.sub{color:#5f5f68;font-size:19px;padding-left:24px}
+.tl.ok{color:#c9c9d0;padding-left:24px}
+.tl.ok b{color:var(--teal);font-weight:400;margin-right:8px}
+.tl.out{color:#d8d8de;margin-top:14px}
+.fname{color:#fff;font-weight:600}
+.term-cursor{display:inline-block;width:10px;height:22px;background:var(--teal);
+  margin-left:6px;vertical-align:-3px;animation:cursor 1s steps(1) infinite;opacity:0;
+  transition:opacity .3s ease;transition-delay:8.0s}
+.scene.active .term-cursor{opacity:1}
+.scene:not(.active) .term-cursor{transition-delay:0s}
+@keyframes cursor{50%{opacity:0}}
+.file-card{margin-top:24px;display:flex;align-items:center;gap:22px;padding:20px 26px;border-radius:20px;
+  background:linear-gradient(90deg,rgba(94,234,212,.10),rgba(255,255,255,.02));
+  border:1px solid rgba(94,234,212,.28);box-shadow:0 26px 70px rgba(0,0,0,.4);
+  opacity:0;transform:translateY(26px);transition:opacity .6s,transform .7s var(--ease);transition-delay:8.7s}
+.scene.active .file-card{opacity:1;transform:none}
+.scene:not(.active) .file-card{transition-delay:0s}
+.w-ico{width:56px;height:56px;border-radius:13px;background:linear-gradient(160deg,#2b579a,#1e3f73);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font);font-size:30px;font-weight:800;color:#fff}
+.file-card b{display:block;font-size:25px;font-weight:700;letter-spacing:-.01em}
+.file-card small{display:block;margin-top:5px;font-size:17px;color:var(--muted)}
+.file-state{margin-left:auto;font-size:17px;color:var(--teal);border:1px solid rgba(94,234,212,.35);
+  padding:7px 13px;border-radius:999px;background:rgba(94,234,212,.08)}
+
+/* ---------- 07 compare ---------- */
+.cmp{margin-top:70px;display:flex;flex-direction:column;gap:18px;width:100%}
+.cmp-row{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;padding:36px 34px;border-radius:26px;
+  background:linear-gradient(90deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border:1px solid var(--line)}
+.cmp-old{font-size:47px;color:#6e6e73;text-align:right}
+.cmp-arrow{font-size:38px;color:var(--teal);text-align:center}
+.cmp-new{font-size:49px;font-weight:700;letter-spacing:-.02em;text-shadow:0 0 28px rgba(94,234,212,.22)}
+.note{margin-top:60px;font-size:33px;color:var(--muted);letter-spacing:.06em;text-align:center}
+
+/* ---------- 08 cta ---------- */
+.cta-name{font-family:var(--mono);font-size:88px;font-weight:700;letter-spacing:-.045em}
+.cta-sub{margin-top:28px;font-size:36px;color:var(--muted2);letter-spacing:.08em}
+.repo{margin-top:48px;display:flex;align-items:center;gap:14px;padding:18px 32px;border-radius:999px;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);
+  font-family:var(--mono);font-size:25px;color:#d8d8dc}
+.repo svg{width:28px;height:28px;fill:#f5f5f7}
+.tagline{margin-top:58px;font-size:44px;font-weight:700;letter-spacing:.01em}
+.tiny{margin-top:24px;font-size:24px;color:var(--muted)}
+
+/* ---------- hud ---------- */
+.hud{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:1;transition:opacity .5s ease}
+.hud.hide{opacity:0}
+.pbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.08)}
+.pbar i{display:block;height:100%;width:100%;transform-origin:0 50%;transform:scaleX(0);
+  background:linear-gradient(90deg,#5eead4,#a5b4fc)}
+.counter{position:absolute;right:54px;bottom:40px;font-family:var(--mono);font-size:20px;
+  color:rgba(255,255,255,.38);letter-spacing:.14em}
+.counter .sep{margin:0 7px;opacity:.5}
+.hint{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);font-size:18px;
+  color:rgba(255,255,255,.34);letter-spacing:.08em;white-space:nowrap;opacity:0;transition:opacity .4s ease}
+.hud.showhint .hint{opacity:1}
+body.clean .hud{display:none}
+body.still *{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;transition-delay:0s!important}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="bg"></div>
+  <div class="stars"></div>
+
+  <!-- 01 开场 -->
+  <section class="scene" data-dur="6000">
+    <div class="brandline"><span class="brand-dot"></span> progress-report</div>
+    <div class="center">
+      <div class="kicker-cn r" style="--d:.25s">写给每一个要交汇报的人</div>
+      <div class="mask" style="--d:.55s"><div class="mask-inner s0-line">你写了三页纸</div></div>
+      <div class="mask" style="--d:1.15s"><div class="mask-inner s0-quote grad"><span class="qmark">“</span>重点是什么？<span class="qmark">”</span></div></div>
+      <div class="s0-sub r" style="--d:2.2s">问题不在字数，在结构。</div>
+    </div>
+  </section>
+
+  <!-- 02 痛点 -->
+  <section class="scene" data-dur="8400">
+    <div class="pain-head">
+      <div class="kicker-cn r" style="--d:.2s">写汇报的三个瞬间</div>
+    </div>
+    <div class="pain-list">
+      <article class="pain" style="--d:.65s">
+        <div class="num">01</div>
+        <div><h3>细节堆满三页</h3><p>重点，一句没有</p></div>
+      </article>
+      <article class="pain" style="--d:1.3s">
+        <div class="num">02</div>
+        <div><h3>满屏都是术语</h3><p>领导，看不懂</p></div>
+      </article>
+      <article class="pain" style="--d:1.95s">
+        <div class="num">03</div>
+        <div><h3>改到第七版</h3><p>还是，被打回</p></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 03 产品揭晓 -->
+  <section class="scene" data-dur="6000">
+    <div class="orb"></div>
+    <i class="spark" style="--sx:-330px;--sy:-160px;--sd:0s"></i>
+    <i class="spark" style="--sx:300px;--sy:-210px;--sd:.5s"></i>
+    <i class="spark" style="--sx:-260px;--sy:190px;--sd:1s"></i>
+    <i class="spark" style="--sx:340px;--sy:160px;--sd:1.5s"></i>
+    <i class="spark" style="--sx:60px;--sy:-260px;--sd:2s"></i>
+    <i class="spark" style="--sx:-90px;--sy:250px;--sd:2.5s"></i>
+    <i class="spark" style="--sx:0px;--sy:-250px;--sd:3s"></i>
+    <i class="spark" style="--sx:250px;--sy:60px;--sd:3.6s"></i>
+    <div class="center">
+      <div class="kicker r" style="--d:.2s">A CLAUDE CODE SKILL</div>
+      <div class="mask" style="--d:.5s"><div class="mask-inner product-name grad">progress-report</div></div>
+      <div class="product-cn r" style="--d:1.2s">进展汇报技能</div>
+      <div class="product-desc r" style="--d:1.8s">把一份定稿过的汇报规范，交给 AI 执行。</div>
+      <div class="product-desc2 r" style="--d:2.35s">读者是领导，所以只留：问题、做法、结果。</div>
+    </div>
+  </section>
+
+  <!-- 04 工作流 -->
+  <section class="scene" data-dur="10000">
+    <div class="kicker-cn r" style="--d:.15s">它怎么干活</div>
+    <div class="h1 r" style="--d:.35s">从一堆素材，到一页汇报</div>
+    <div class="pipe">
+      <div class="inputs r" style="--d:.9s">
+        <span class="chip">训练日志</span>
+        <span class="chip">聊天记录</span>
+        <span class="chip">代码库</span>
+        <span class="chip">交付文档</span>
+      </div>
+      <div class="wire"><i></i></div>
+      <div class="core r" style="--d:1.35s">
+        <b>progress-report</b>
+        <small>按定稿规范执行</small>
+      </div>
+      <div class="wire"><i></i></div>
+      <div class="steps">
+        <div class="step" style="--d:2.5s"><em>01</em><b>总览</b><span>定位 · 数字 · 动作 · 状态</span></div>
+        <div class="step" style="--d:3.2s"><em>02</em><b>按时间分节</b><span>日期 + 阶段主题</span></div>
+        <div class="step" style="--d:3.9s"><em>03</em><b>固定骨架</b><span>问题 → 做法 → 结果</span></div>
+        <div class="step" style="--d:4.6s"><em>04</em><b>新旧对比</b><span>左右对照表，左旧右新</span></div>
+        <div class="step" style="--d:5.3s"><em>05</em><b>收尾</b><span>结果配图 + 一句“后续”</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 结构成稿 -->
+  <section class="scene" data-dur="11600">
+    <div class="h1 r" style="--d:.1s">一份汇报，固定五段</div>
+    <div class="build">
+      <div class="labs">
+        <div class="lab" style="--d:.9s"><em>01</em><b>总览</b><small>3–4 句讲清现状</small></div>
+        <div class="lab" style="--d:2.35s"><em>02</em><b>按时间分节</b><small>日期一行，主题一行</small></div>
+        <div class="lab" style="--d:3.8s"><em>03</em><b>固定骨架</b><small>问题 → 做法 → 结果</small></div>
+        <div class="lab" style="--d:5.25s"><em>04</em><b>新旧对比</b><small>左右对照，左旧右新</small></div>
+        <div class="lab" style="--d:6.7s"><em>05</em><b>收尾</b><small>配图 + 一句“后续”</small></div>
+      </div>
+      <div class="page-wrap">
+        <div class="page">
+          <div class="scan"></div>
+          <div class="p-age">10月2日 · Model-v12/v13</div>
+          <div class="p-title">模型训练进展汇报（9月30日—10月7日）</div>
+
+          <div class="pb" style="--d:1.1s">
+            <div class="ptag">总览</div>
+            <div class="bar" style="width:100%"></div>
+            <div class="bar" style="width:93%;margin-top:7px"></div>
+            <div class="bar" style="width:72%;margin-top:7px"></div>
+          </div>
+
+          <div class="pb" style="--d:2.55s">
+            <div class="pdate">10月2日</div>
+            <div class="ptheme">Model-v12/v13</div>
+          </div>
+
+          <div class="pb" style="--d:4.0s">
+            <div class="pdr"><span class="k">问题</span><div class="bar" style="width:86%"></div></div>
+            <div class="pdr"><span class="k">做法</span><div class="bar" style="width:78%"></div></div>
+            <div class="pdr"><span class="k">结果</span><div class="bar" style="width:91%"></div></div>
+          </div>
+
+          <div class="pb" style="--d:5.45s">
+            <div class="ptag">新旧对比</div>
+            <table class="ptable">
+              <tr><th>指标</th><th>旧</th><th>新</th></tr>
+              <tr><td>128 步误差</td><td>2.1 m</td><td>0.6 m</td></tr>
+              <tr><td>轨迹连续率</td><td>91%</td><td>99.4%</td></tr>
+            </table>
+          </div>
+
+          <div class="pb" style="--d:6.9s">
+            <div class="pfig">
+              <svg viewBox="0 0 470 150">
+                <g stroke="#e3e5e9"><line x1="30" y1="16" x2="30" y2="126"/><line x1="30" y1="126" x2="452" y2="126"/></g>
+                <polyline points="30,108 82,101 134,96 186,89 238,81 290,74 342,66 394,58 446,52"
+                  fill="none" stroke="#1f6feb" stroke-width="2.6"/>
+                <polyline points="30,112 82,104 134,99 186,93 238,88 290,82 342,74 394,64 446,58"
+                  fill="none" stroke="#9aa0a6" stroke-width="2" stroke-dasharray="5 4"/>
+              </svg>
+              <span class="tag">示意图</span>
+            </div>
+            <div class="pcap">图1　轨迹对比（示意图）</div>
+            <div class="pend">后续，按新的数据分类继续训练。</div>
+          </div>
+        </div>
+        <div class="pstatus"><i></i><span class="stwrap"><span class="st1">正在成文</span><span class="st2">已生成 · 1 页</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 硬规矩 -->
+  <section class="scene" data-dur="11800">
+    <div class="h1 sm r" style="--d:.1s">四条硬规矩，正在生效</div>
+    <div class="rules-wrap">
+      <div class="doc-stack">
+        <div class="ghost g2"></div>
+        <div class="ghost g1"></div>
+        <div class="page-badge">1 页</div>
+        <div class="mini">
+          <div class="p-age">10月2日 · Model-v12/v13</div>
+          <div class="p-title">模型训练进展汇报（9月30日—10月7日）</div>
+          <p class="mini-line"><b>总览：</b>本期完成长程训练，128 步误差降至 0.6 m。</p>
+          <p class="mini-line news"><b>结果：</b>误差 0.6 m；但长尾场景仍会漂移，目前不可接受。</p>
+          <p class="mini-sub"><b>做法：</b>1. 长程跟踪训练；2. 镜像增广；3. 逐级加长步数。</p>
+          <div class="mini-table">
+            <div class="mt-row"><span>128 步误差</span><b>2.1 m → 0.6 m</b></div>
+            <div class="mt-row"><span>轨迹连续率</span><b>91% → 99.4%</b></div>
+          </div>
+          <div class="mini-chart">
+            <svg viewBox="0 0 340 132">
+              <g stroke="#e3e5e9"><line x1="26" y1="12" x2="26" y2="112"/><line x1="26" y1="112" x2="330" y2="112"/></g>
+              <polyline points="26,96 64,90 102,85 140,79 178,72 216,66 254,58 292,52 328,48"
+                fill="none" stroke="#1f6feb" stroke-width="2.4"/>
+            </svg>
+            <span class="mtag">示意图</span>
+          </div>
+          <div class="mini-cap">图1　轨迹对比（示意图）</div>
+          <div class="mini-end">后续，按新的数据分类继续训练。</div>
+          <div class="typo-tags">
+            <span class="typo-tag" style="--d:6.95s">宋体</span>
+            <span class="typo-tag" style="--d:7.2s">五号</span>
+            <span class="typo-tag" style="--d:7.45s">单倍行距</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rule-list">
+        <div class="rule-row" style="--d:1.2s">
+          <div class="rr-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <div class="rr-txt"><b>结果必须配图</b><small>没数据就画示意图，明确标注</small></div>
+          <div class="sw"></div>
+        </div>
+        <div class="rule-row" style="--d:3.0s">
+          <div class="rr-ico"><svg viewBox="0 0 24 24"><path d="M12 3l9 17H3L12 3z"/><path d="M12 9v5"/><circle cx="12" cy="17.2" r=".9" fill="currentColor" stroke="none"/></svg></div>
+          <div class="rr-txt"><b>坏消息照写</b><small>泄露就说泄露，不粉饰</small></div>
+          <div class="sw"></div>
+        </div>
+        <div class="rule-row" style="--d:4.8s">
+          <div class="rr-ico"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></div>
+          <div class="rr-txt"><b>只写一到两页</b><small>砍掉细节，删繁就简</small></div>
+          <div class="sw"></div>
+        </div>
+        <div class="rule-row" style="--d:6.6s">
+          <div class="rr-ico"><svg viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></div>
+          <div class="rr-txt"><b>排版自动规范</b><small>宋体 · 五号 · 单倍行距</small></div>
+          <div class="sw"></div>
+        </div>
+      </div>
+    </div>
+    <div class="rules-status">4 / 4 已生效</div>
+  </section>
+
+  <!-- 07 现场演示 -->
+  <section class="scene" data-dur="13400">
+    <div class="demo-head">
+      <div class="kicker-cn r" style="--d:.15s">现场跑一遍</div>
+      <div class="demo-src r" style="--d:.3s">素材：日志 / 聊天记录 / 代码 / 文档</div>
+    </div>
+    <div class="terminal r" style="--d:.45s">
+      <div class="term-bar"><i></i><i></i><i></i><span>claude — progress-report</span></div>
+      <div class="term-body">
+        <div class="term-line"><span class="prompt">$</span> <span class="typed t1">claude</span></div>
+        <div class="term-line"><span class="caret">❯</span> <span class="typed t2">用 progress-report 把本周进展写成汇报</span><span class="think-inline"><span class="spin"></span></span></div>
+
+        <div class="tl dim" style="--d:3.7s">● 读取素材</div>
+        <div class="tl sub" style="--d:4.0s">训练日志 ×12 · 聊天记录 ×3 · 代码提交 ×48</div>
+
+        <div class="tl dim" style="--d:4.7s">● 按定稿规范成文</div>
+        <div class="tl ok" style="--d:5.1s"><b>✓</b>总览：定位 / 数字 / 动作 / 状态</div>
+        <div class="tl ok" style="--d:5.5s"><b>✓</b>分节：日期 + 阶段主题</div>
+        <div class="tl ok" style="--d:5.9s"><b>✓</b>骨架：问题 → 做法 → 结果</div>
+        <div class="tl ok" style="--d:6.3s"><b>✓</b>对比：左右对照表</div>
+        <div class="tl ok" style="--d:6.7s"><b>✓</b>配图：误差曲线（示意图）</div>
+
+        <div class="tl out" style="--d:7.4s">● 输出 Word <span class="term-cursor"></span></div>
+        <div class="tl sub" style="--d:7.8s"><span class="fname">progress-report-1007.docx</span> · 1 页</div>
+      </div>
+    </div>
+    <div class="file-card">
+      <div class="w-ico">W</div>
+      <div><b>progress-report-1007.docx</b><small>1 页 · 宋体 / 五号 / 单倍行距</small></div>
+      <div class="file-state">已生成</div>
+    </div>
+  </section>
+
+  <!-- 08 前后对比 -->
+  <section class="scene" data-dur="7600">
+    <div class="center" style="align-items:stretch">
+      <div class="kicker-cn r" style="--d:.15s;text-align:center">同一份进展，换一种写法</div>
+      <div class="cmp">
+        <div class="cmp-row r" style="--d:.6s">
+          <span class="cmp-old">2 小时</span><span class="cmp-arrow">→</span><span class="cmp-new grad">30 秒</span>
+        </div>
+        <div class="cmp-row r" style="--d:1.1s">
+          <span class="cmp-old">3 页流水账</span><span class="cmp-arrow">→</span><span class="cmp-new grad">1 页结构化</span>
+        </div>
+        <div class="cmp-row r" style="--d:1.6s">
+          <span class="cmp-old">改到第 7 版</span><span class="cmp-arrow">→</span><span class="cmp-new grad">直接发</span>
+        </div>
+      </div>
+      <div class="note r" style="--d:2.2s">省下的时间，拿去干活。</div>
+    </div>
+  </section>
+
+  <!-- 09 CTA -->
+  <section class="scene" data-dur="8200">
+    <div class="center">
+      <div class="kicker r" style="--d:.2s">OPEN SOURCE · FREE</div>
+      <div class="mask" style="--d:.5s"><div class="mask-inner cta-name grad">progress-report</div></div>
+      <div class="cta-sub r" style="--d:1.1s">进展汇报技能 · 开源免费</div>
+      <div class="repo r" style="--d:1.65s">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.8-.01 3.18 0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        <span>github.com/yellowyyyu/progress-report-skill</span>
+      </div>
+      <div class="tagline r" style="--d:2.2s">让每一份汇报，一页纸讲清楚。</div>
+      <div class="tiny r" style="--d:2.65s">Claude Code / Codex 技能 · 内置写作规范与 Word 模板 · 欢迎 Star</div>
+    </div>
+  </section>
+
+  <div class="vignette"></div>
+
+  <div class="hud" id="hud">
+    <div class="pbar"><i id="bar"></i></div>
+    <div class="counter"><span id="cur">01</span><span class="sep">/</span><span id="total">09</span></div>
+    <div class="hint">空格 暂停 · ← → 切换 · R 重播 · F 全屏</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const stage = document.getElementById('stage');
+  const scenes = Array.from(document.querySelectorAll('.scene'));
+  const durs = scenes.map(s => Number(s.dataset.dur) || 7000);
+  const bar = document.getElementById('bar');
+  const cur = document.getElementById('cur');
+  const hud = document.getElementById('hud');
+  document.getElementById('total').textContent = String(scenes.length).padStart(2,'0');
+
+  const params = new URLSearchParams(location.search);
+  const clean = params.has('clean');
+  const still = params.has('still');
+  const startScene = Math.max(0, Math.min(scenes.length - 1, Number(params.get('scene') || 0)));
+  if (clean) document.body.classList.add('clean');
+  if (still) document.body.classList.add('still');
+
+  let idx = -1, playing = !still, start = performance.now(), pausedElapsed = 0;
+
+  function fit(){
+    const s = Math.min(innerWidth / 1080, innerHeight / 1920);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  addEventListener('resize', fit);
+  fit();
+
+  function activate(i){
+    if (i < 0 || i >= scenes.length) return;
+    scenes.forEach((el, j) => {
+      el.classList.remove('active');
+      if (j === i) { void el.offsetWidth; el.classList.add('active'); }
+    });
+    idx = i;
+    start = performance.now();
+    pausedElapsed = 0;
+    cur.textContent = String(i + 1).padStart(2, '0');
+    bar.style.transform = 'scaleX(0)';
+  }
+
+  function tick(t){
+    if (playing && idx >= 0){
+      const elapsed = t - start;
+      const p = Math.min(1, elapsed / durs[idx]);
+      bar.style.transform = 'scaleX(' + p + ')';
+      if (p >= 1){
+        if (idx < scenes.length - 1) activate(idx + 1);
+        else { playing = false; }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function pause(){
+    if (!playing) return;
+    playing = false;
+    pausedElapsed = performance.now() - start;
+    document.getAnimations().forEach(a => { try { a.pause(); } catch(e){} });
+  }
+  function resume(){
+    if (playing || still) return;
+    playing = true;
+    start = performance.now() - pausedElapsed;
+    document.getAnimations().forEach(a => { try { a.play(); } catch(e){} });
+  }
+  function toggle(){ playing ? pause() : resume(); }
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space'){ e.preventDefault(); toggle(); }
+    else if (e.code === 'ArrowRight' || e.code === 'ArrowDown'){ e.preventDefault(); activate(Math.min(idx + 1, scenes.length - 1)); }
+    else if (e.code === 'ArrowLeft' || e.code === 'ArrowUp'){ e.preventDefault(); activate(Math.max(idx - 1, 0)); }
+    else if (e.key === 'r' || e.key === 'R'){ activate(0); }
+    else if (e.key === 'f' || e.key === 'F'){
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+  addEventListener('click', () => { if (!still) activate(Math.min(idx + 1, scenes.length - 1)); });
+
+  let hintTimer;
+  addEventListener('mousemove', () => {
+    hud.classList.add('showhint');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => hud.classList.remove('showhint'), 2200);
+  });
+
+  activate(startScene);
+  if (still) playing = false;
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
